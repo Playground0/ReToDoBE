@@ -24,10 +24,10 @@ server.listen(port, () => {
     console.log("Server running");
 });
 
-const MONGO_URL = 'mongodb+srv://emailplayg1:XHrRmxI2DxGhQD87@brownsurveydb.ielidos.mongodb.net/?retryWrites=true&w=majority'
-
+const MONGO_URL = 'mongodb+srv://emailplayg1:EebG9dZAXUXvYyK5@retodo.hwamy2h.mongodb.net/?retryWrites=true&w=majority'
 mongoose.Promise = Promise;
 mongoose.connect(MONGO_URL);
 mongoose.connection.on('error', (error: Error) => console.log(error));
+console.log(mongoose.connection)
 
 app.use('/api', router());
