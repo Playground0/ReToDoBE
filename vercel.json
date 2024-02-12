@@ -11,7 +11,7 @@
     "builds": [
       {
         "src": "dist/index.js",
-        "use": "@vercel/node",
+        "use": "npm start",
         "config": { "includeFiles": ["dist/**"] }
       }
     ],
