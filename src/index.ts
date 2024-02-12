@@ -32,7 +32,7 @@ mongoose.connection.on('error', (error: Error) => console.log(error));
 
 app.get('/', (req: express.Request, res: express.Response) => {
     let msg  =  {
-        message: 'ok'
+        message: 'ok! Deployed'
     }
     return res.status(200).json(msg)
 })
