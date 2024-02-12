@@ -2,7 +2,7 @@
   "name": "retodo-be",
   "version": "1.0.0",
   "description": "backend for retodo",
-  "main": "app.js",
+  "main": "index.js",
   "scripts": {
     "build": "npx tsc",
     "prestart": "npm run build",
@@ -22,8 +22,7 @@
     "lodash": "^4.17.21",
     "mongoose": "^8.1.1",
     "nodemon": "^3.0.3",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@types/body-parser": "^1.19.5",
@@ -32,6 +31,8 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/lodash": "^4.14.202",
-    "@types/mongoose": "^5.11.97"
+    "@types/mongoose": "^5.11.97",
+    "@types/node": "^20.11.17",
+    "typescript": "^5.3.3"
   }
 }
