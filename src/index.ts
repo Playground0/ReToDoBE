@@ -28,7 +28,6 @@ const MONGO_URL = 'mongodb+srv://emailplayg1:EebG9dZAXUXvYyK5@retodo.hwamy2h.mon
 mongoose.Promise = Promise;
 mongoose.connect(MONGO_URL);
 mongoose.connection.on('error', (error: Error) => console.log(error));
-// console.log(mongoose.connection)
 
 
 app.get('/', (req: express.Request, res: express.Response) => {
