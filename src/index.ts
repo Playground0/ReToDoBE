@@ -8,7 +8,8 @@ import mongoose from 'mongoose';
 import router from './router';
 
 const app = express();
-const port = 8080;
+const hostname = "0.0.0.0";
+const port = process.env.PORT || 3000;
 
 app.use(cors({
     credentials: true
