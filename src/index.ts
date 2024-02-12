@@ -31,7 +31,7 @@ mongoose.connection.on('error', (error: Error) => console.log(error));
 // console.log(mongoose.connection)
 
 
-app.get('', (req: express.Request, res: express.Response) => {
+app.get('/', (req: express.Request, res: express.Response) => {
     let msg  =  {
         message: 'ok'
     }
