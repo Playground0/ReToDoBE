@@ -8,10 +8,13 @@ import mongoose from 'mongoose';
 import router from './router';
 
 const app = express();
-const hostname = "0.0.0.0";
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8000;
 
 app.use(cors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
     credentials: true
 }));
 
@@ -22,10 +25,10 @@ app.use(bodyparser.json());
 const server = http.createServer(app);
 
 server.listen(port, () => {
-    console.log("Server running");
+    console.log("Server running on port:" + port);
 });
 
-const MONGO_URL = 'mongodb+srv://emailplayg1:EebG9dZAXUXvYyK5@retodo.hwamy2h.mongodb.net/?retryWrites=true&w=majority'
+const MONGO_URL = 'mongodb+srv://emailplayg1:EebG9dZAXUXvYyK5@retodo.hwamy2h.mongodb.net/RTD?retryWrites=true&w=majority&appName=ReToDo'
 mongoose.Promise = Promise;
 mongoose.connect(MONGO_URL);
 mongoose.connection.on('error', (error: Error) => console.log(error));
@@ -37,4 +40,4 @@ app.get('/', (req: express.Request, res: express.Response) => {
     }
     return res.status(200).json(msg)
 })
-app.use('/api', router());
+app.use('/api/v1', router());
