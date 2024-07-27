@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import dayjs from "dayjs";
+import { endOfToday, startOfToday } from "../../utils/date-converter";
 
 export const TodoTaskSchema = new mongoose.Schema({
   currentListId: { type: String, required: true },
@@ -19,9 +19,6 @@ export const TodoTaskSchema = new mongoose.Schema({
   isDeleted: { type: Boolean, required: false },
   isArchived: { type: Boolean, required: false },
 });
-const startOfToday = dayjs().startOf('day').toISOString();
-const endOfToday = dayjs().endOf('day').toISOString();
-const now = dayjs().toISOString();
 
 export const TodoTaskModel = mongoose.model("TodoTask", TodoTaskSchema);
 
@@ -67,8 +64,8 @@ export const getTodayTasks = (userId: string) =>
   TodoTaskModel.find({
     userId: userId,
     taskEndDate: {
-      $gte: startOfToday,
-      $lte: endOfToday,
+      $gte: startOfToday(),
+      $lte: endOfToday(),
     },
     isCompleted: false,
     isArchived: false,
@@ -79,7 +76,7 @@ export const getUpcommingTasks = (userId: string) =>
   TodoTaskModel.find({
     userId: userId,
     taskEndDate: {
-      $gte: now,
+      $gt: endOfToday(),
     },
     isCompleted: false,
     isArchived: false,
