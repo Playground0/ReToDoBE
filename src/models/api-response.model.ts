@@ -1,3 +1,5 @@
+import { APIStatusCode } from "./constants/status.constants";
+
 interface ErrorDetail {
   message: string;
   [key: string]: any;
@@ -30,8 +32,8 @@ export class APIResponse<T> {
   static success<T>(
     data: T,
     action: string,
+    code: number = APIStatusCode.OK,
     message: string = "Request processed successfully",
-    code: number = 200
   ): APIResponse<T> {
     return new APIResponse<T>("success", code, action , message, data);
   }
@@ -39,7 +41,7 @@ export class APIResponse<T> {
   static error<T>(
     action: string,
     message: string,
-    code: number = 500,
+    code: number = APIStatusCode.InternalServalError,
     errors: ErrorDetail[] | null = null,
   ) {
     return new APIResponse<T>("error", code, action, message, null, errors);
