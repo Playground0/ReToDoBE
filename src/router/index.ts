@@ -6,8 +6,8 @@ import todoTask from './todo-task';
 const router = express.Router();
 
 export default () : express.Router => {
-    todolist(router);
     authentication(router);
+    todolist(router);
     todoTask(router);
     return router;
 }

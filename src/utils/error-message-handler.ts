@@ -1,7 +1,8 @@
 import express from "express";
 import { APIResponse } from "../models/api-response.model";
+import { APIStatusCode } from "../models/constants/status.constants";
 
-export function defaultErrorMessage(
+export function interalServerError(
   action: string,
   err: unknown,
   res: express.Response
@@ -11,30 +12,33 @@ export function defaultErrorMessage(
     errorMessage = err.message;
   }
   errorMessage = "Unknown Error";
+  const code = APIStatusCode.InternalServalError
   return res
-    .status(400)
+    .status(code)
     .json(
       APIResponse.error(
         action,
         "Something went wrong, check error message",
-        400,
+        code,
         [{ message: errorMessage }]
       )
     );
 }
 
-export function notFoundMessage(
+export function notFoundError(
   action: string,
   message: string,
   res: express.Response
 ): express.Response {
-  return res.status(404).json(APIResponse.error(action, message, 404));
+  const code = APIStatusCode.NotFound
+  return res.status(code).json(APIResponse.error(action, message, code));
 }
 
-export function missingParamMessage(
+export function badRequestError(
   action: string,
   message: string,
-  res: express.Response
+  res: express.Response,
 ) {
-  return res.status(400).json(APIResponse.error(action, message, 400));
+  const code = APIStatusCode.BadRequest
+  return res.status(code).json(APIResponse.error(action, message, code));
 }
