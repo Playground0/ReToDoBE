@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { endOfToday, startOfToday } from "../../utils/date-converter";
 
 export const TodoTaskSchema = new mongoose.Schema({
   currentListId: { type: String, required: true },
@@ -51,7 +52,36 @@ export const getCompletedTasks = (userId: string) =>
   TodoTaskModel.find({ userId: userId, isCompleted: true });
 
 export const getRecurringTasks = (userId: string) =>
-  TodoTaskModel.find({ userId: userId, isRecurring: true });
+  TodoTaskModel.find({
+    userId: userId,
+    isRecurring: true,
+    isCompleted: false,
+    isArchived: false,
+    isDeleted: false,
+  });
+
+export const getTodayTasks = (userId: string) =>
+  TodoTaskModel.find({
+    userId: userId,
+    taskEndDate: {
+      $gte: startOfToday(),
+      $lte: endOfToday(),
+    },
+    isCompleted: false,
+    isArchived: false,
+    isDeleted: false,
+  });
+
+export const getUpcommingTasks = (userId: string) =>
+  TodoTaskModel.find({
+    userId: userId,
+    taskEndDate: {
+      $gt: endOfToday(),
+    },
+    isCompleted: false,
+    isArchived: false,
+    isDeleted: false,
+  });
 
 export const updateTaskByID = (id: string, values: Record<string, any>) =>
   TodoTaskModel.findByIdAndUpdate(id, values);
