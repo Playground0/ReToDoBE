@@ -2,11 +2,12 @@ import express from "express";
 import { createUser, getUserByEmail } from "../models/schemas/users";
 import { authentication, random } from "../helpers";
 import {
-  defaultErrorMessage,
-  missingParamMessage,
-  notFoundMessage,
+  interalServerError,
+  badRequestError,
+  notFoundError,
 } from "../utils/error-message-handler";
 import { APIResponse } from "../models/api-response.model";
+import { APIStatusCode } from "../models/constants/status.constants";
 
 export const register = async (req: express.Request, res: express.Response) => {
   // TODO: Create model for user and assign it
@@ -24,13 +25,13 @@ export const register = async (req: express.Request, res: express.Response) => {
   const action = "Sign Up";
 
   if (!email || !password || !username || !userRole) {
-    return missingParamMessage(action, "Sign Up failed, missing Info", res);
+    return badRequestError(action, "Sign Up failed, missing Info", res);
   }
 
   try {
     const existingUser = await getUserByEmail(email);
     if (existingUser) {
-      return res.status(403).json(APIResponse.error(action, "User Exist", 403));
+      return res.status(APIStatusCode.Conflict).json(APIResponse.error(action, "User Exist", APIStatusCode.Conflict));
     }
 
     const salt = random();
@@ -55,11 +56,11 @@ export const register = async (req: express.Request, res: express.Response) => {
     };
 
     return res
-      .status(200)
-      .json(APIResponse.success(responseBody, action))
+      .status(APIStatusCode.Created)
+      .json(APIResponse.success(responseBody, action, APIStatusCode.Created))
       .end();
   } catch (error) {
-    return defaultErrorMessage(action, error, res);
+    return interalServerError(action, error, res);
   }
 };
 
@@ -68,7 +69,7 @@ export const login = async (req: express.Request, res: express.Response) => {
   const action = "Login";
 
   if (!email || !password) {
-    return missingParamMessage(action, "Please pass credentials", res);
+    return badRequestError(action, "Please pass credentials", res);
   }
 
   try {
@@ -77,20 +78,20 @@ export const login = async (req: express.Request, res: express.Response) => {
     );
 
     if (!user) {
-      return notFoundMessage(action, "User not found", res);
+      return notFoundError(action, "User not found", res);
     }
 
     if (!user.authentication?.salt) {
       return res
-        .status(400)
-        .json(APIResponse.error(action, "Authentication Failed", 400));
+        .status(APIStatusCode.Forbidden)
+        .json(APIResponse.error(action, "Authentication Failed", APIStatusCode.Forbidden));
     }
 
     const expectedHash = authentication(user.authentication.salt, password);
     if (expectedHash !== user.authentication.password) {
       return res
-        .status(403)
-        .json(APIResponse.error(action, "Please check your password", 403));
+        .status(APIStatusCode.Unauthorized)
+        .json(APIResponse.error(action, "Please check your password", APIStatusCode.Unauthorized));
     }
 
     const salt = random();
@@ -106,9 +107,9 @@ export const login = async (req: express.Request, res: express.Response) => {
       userRole: user.userRole,
     };
 
-    return res.status(200).json(APIResponse.success(responseBody, action)).end();
+    return res.status(APIStatusCode.OK).json(APIResponse.success(responseBody, action)).end();
   } catch (error) {
-    return defaultErrorMessage(action, error, res);
+    return interalServerError(action, error, res);
   }
 };
 
@@ -121,17 +122,17 @@ export const logout = async (req: express.Request, res: express.Response) => {
       "+authentication.salt +authentication.password +authentication.sessionToken"
     );
     if (!user) {
-      return notFoundMessage(action, "User not found", res);
+      return notFoundError(action, "User not found", res);
     }
 
     if (!user?.authentication?.sessionToken.includes(sessionToken)) {
       return res
-        .status(403)
+        .status(APIStatusCode.Forbidden)
         .json(
           APIResponse.error(
             action,
             "Authentication Failed or user already logged out",
-            403
+            APIStatusCode.Forbidden
           )
         );
     }
@@ -140,8 +141,8 @@ export const logout = async (req: express.Request, res: express.Response) => {
       (token) => token !== sessionToken
     );
     user.save();
-    return res.status(200).json(APIResponse.success([], action)).end();
+    return res.status(APIStatusCode.NoContent).json(APIResponse.success([], action,APIStatusCode.NoContent)).end();
   } catch (error) {
-    return defaultErrorMessage(action, error, res);
+    return interalServerError(action, error, res);
   }
 };

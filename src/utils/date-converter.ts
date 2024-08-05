@@ -1,4 +1,4 @@
-import dayjs from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 
 export function startOfToday() {
   return dayjs().startOf("day").format("YYYY-MM-DDTHH:mm:ss");
@@ -14,4 +14,8 @@ export function startOfTomorrow() {
 
 export function endOfTomorrow() {
   return dayjs().startOf("day").format("YYYY-MM-DDTHH:mm:ss");
+}
+
+export function startOfDay(date: Dayjs){
+  return dayjs(date).startOf('day').format("YYYY-MM-DDTHH:mm:ss")
 }

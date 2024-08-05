@@ -8,7 +8,7 @@ export const TodoTaskSchema = new mongoose.Schema({
   taskTitle: { type: String, required: true },
   creationDate: { type: String, required: true },
   updationDate: { type: String, required: true },
-  taskStartDate: { type: String, required: true },
+  taskStartDate: { type: String, required: false },
   taskEndDate: { type: String, required: false },
   taskDesc: { type: String, required: false },
   occurance: { type: String, required: false },
@@ -22,8 +22,13 @@ export const TodoTaskSchema = new mongoose.Schema({
 
 export const TodoTaskModel = mongoose.model("TodoTask", TodoTaskSchema);
 
-export const createTask = (values: Record<string, any>) =>
-  new TodoTaskModel(values).save().then((user) => user.toObject());
+// export const createTask = (values: Record<string, any>) =>
+//   new TodoTaskModel(values).save().then((task) => task.toObject());
+
+export const createTask = (values: Record<string, any>[]) =>
+  TodoTaskModel.insertMany(values).then((savedTasks) =>
+    savedTasks.map((task) => task.toObject())
+  );
 
 export const getTaskById = (id: string, userId: string) =>
   TodoTaskModel.findOne({ _id: id, userId: userId });

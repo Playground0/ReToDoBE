@@ -1,9 +1,9 @@
 import express from "express";
 import { APIResponse } from "../models/api-response.model";
 import {
-  defaultErrorMessage,
-  notFoundMessage,
-  missingParamMessage,
+  interalServerError,
+  notFoundError,
+  badRequestError,
 } from "../utils/error-message-handler";
 import { getUserById } from "../models/schemas/users";
 import {
@@ -18,7 +18,9 @@ import {
   getUpcommingTasks,
 } from "../models/schemas/todo-task";
 import { TaskUndoActions } from "../models/constants/todo.constants";
-import { startOfToday } from "../utils/date-converter";
+import { startOfDay, startOfToday } from "../utils/date-converter";
+import { APIStatusCode } from "../models/constants/status.constants";
+import dayjs from "dayjs";
 
 //TODO: Add new enums for the constants
 // like Create Task, Get Task Details, etc
@@ -32,6 +34,7 @@ export const createNewTask = async (
     previousListID,
     userId,
     taskTitle,
+    taskStartDate,
     taskEndDate,
     taskDesc,
     occurance,
@@ -40,15 +43,16 @@ export const createNewTask = async (
     isRecurring,
   } = req.body;
   const action = "Create Task";
+  let tasks = [];
 
   if (!userId) {
-    return missingParamMessage(action, "Missing user id", res);
+    return badRequestError(action, "Missing user id", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "User not found", res);
+      return notFoundError(action, "User not found", res);
     }
     const newTask = {
       currentListId: currentListId,
@@ -57,7 +61,7 @@ export const createNewTask = async (
       taskTitle: taskTitle,
       creationDate: startOfToday(),
       updationDate: startOfToday(),
-      taskStartDate: startOfToday(),
+      taskStartDate: taskStartDate,
       taskEndDate: taskEndDate,
       taskDesc: taskDesc,
       occurance: occurance,
@@ -68,16 +72,20 @@ export const createNewTask = async (
       isArchived: false,
       isCompleted: false,
     };
-
-    const task = await createTask(newTask);
-    let responseBody = {
-      taskId: task._id,
-      title: task.taskTitle,
-      userId: task.userId,
-    };
-    return res.status(200).json(APIResponse.success(responseBody, action));
+    if (!isRecurring) {
+      tasks.push(newTask);
+      const response = await createTask(tasks);
+      return res
+        .status(APIStatusCode.Created)
+        .json(APIResponse.success(response[0], action, APIStatusCode.Created));
+    }
+    tasks = setupRecurringTasks(newTask);
+    const response = await createTask(tasks);
+    return res
+      .status(APIStatusCode.Created)
+      .json(APIResponse.success(response, action, APIStatusCode.Created));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -90,23 +98,23 @@ export const getTaskDetails = async (
   const action = "Get Task Details";
 
   if (!userId || !taskId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
 
     const task = await getTaskById(taskId, userId);
     if (!task) {
-      return notFoundMessage(action, "Task not found", res);
+      return notFoundError(action, "Task not found", res);
     }
 
-    return res.status(200).json(APIResponse.success(task, action));
+    return res.status(APIStatusCode.OK).json(APIResponse.success(task, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -131,34 +139,44 @@ export const updateTaskDetails = async (
   const action = "Update Task";
 
   if (!taskId || !userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
     const task = await getTaskById(taskId, userId);
     if (!task) {
-      return notFoundMessage(action, "task not found", res);
+      return notFoundError(action, "task not found", res);
     }
     task.currentListId = currentListId;
     task.previousListID = previousListID;
     task.taskTitle = taskTitle;
     task.taskStartDate = taskStartDate;
     task.taskEndDate = taskEndDate;
+    task.updationDate = startOfToday();
     task.taskDesc = taskDesc;
     task.occurance = occurance;
     task.priority = priority;
     task.reminder = reminder;
     task.isRecurring = isRecurring;
-    //TODO: Update the updation time of the task here
-    task.save();
 
-    return res.status(200).json(APIResponse.success(task, action));
+    if (!isRecurring) {
+      task.save();
+      return res
+        .status(APIStatusCode.OK)
+        .json(APIResponse.success(task, action));
+    }
+    await deleteTaskById(task.id)
+    const tasks = setupRecurringTasks(task);
+    const response = await createTask(tasks);
+    return res
+      .status(APIStatusCode.Created)
+      .json(APIResponse.success(response, action, APIStatusCode.Created));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -170,26 +188,29 @@ export const permaDeleteTask = async (
   const action = "Perma Delete Task";
 
   if (!taskId) {
-    return missingParamMessage(action, "Missing Task id", res);
+    return badRequestError(action, "Missing Task id", res);
   }
   if (!userId) {
-    return missingParamMessage(action, "Missing user id ", res);
+    return badRequestError(action, "Missing user id ", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "User not found", res);
+      return notFoundError(action, "User not found", res);
     }
     const list = await getTaskById(taskId, userId);
     if (!list) {
-      return notFoundMessage(action, "Task not found", res);
+      return notFoundError(action, "Task not found", res);
     }
 
     await deleteTaskById(taskId);
-    return res.status(200).json(APIResponse.success([], action)).end();
+    return res
+      .status(APIStatusCode.NoContent)
+      .json(APIResponse.success([], action, APIStatusCode.NoContent))
+      .end();
   } catch (error) {
-    return defaultErrorMessage(action, error, res);
+    return interalServerError(action, error, res);
   }
 };
 
@@ -200,19 +221,21 @@ export const inboxTasks = async (
   const userId = req.params.userId;
   const action = "Get Inbox";
   if (!userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
 
     const tasks = await getInboxTasks(userId);
-    return res.status(200).json(APIResponse.success(tasks, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(tasks, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -223,19 +246,21 @@ export const archivedTasks = async (
   const userId = req.params.userId;
   const action = "Get Archived tasks";
   if (!userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
 
     const tasks = await getArchivedTasks(userId);
-    return res.status(200).json(APIResponse.success(tasks, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(tasks, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -246,19 +271,21 @@ export const deletedTasks = async (
   const userId = req.params.userId;
   const action = "Get Deleted tasks";
   if (!userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
 
     const tasks = await getDeletedTasks(userId);
-    return res.status(200).json(APIResponse.success(tasks, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(tasks, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -269,19 +296,21 @@ export const completedTasks = async (
   const userId = req.params.userId;
   const action = "Get Completed tasks";
   if (!userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
 
     const tasks = await getCompletedTasks(userId);
-    return res.status(200).json(APIResponse.success(tasks, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(tasks, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -292,19 +321,21 @@ export const todayTasks = async (
   const userId = req.params.userId;
   const action = "Get Completed tasks";
   if (!userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
 
     const tasks = await getTodayTasks(userId);
-    return res.status(200).json(APIResponse.success(tasks, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(tasks, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -315,19 +346,21 @@ export const upcommingTasks = async (
   const userId = req.params.userId;
   const action = "Get Completed tasks";
   if (!userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
 
     const tasks = await getUpcommingTasks(userId);
-    return res.status(200).json(APIResponse.success(tasks, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(tasks, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -339,24 +372,26 @@ export const softDeleteTask = async (
   const action = "Delete Task";
 
   if (!taskId || !userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
     const task = await getTaskById(taskId, userId);
     if (!task) {
-      return notFoundMessage(action, "task not found", res);
+      return notFoundError(action, "task not found", res);
     }
     task.isDeleted = true;
     task.save();
 
-    return res.status(200).json(APIResponse.success(task.isDeleted, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(task.isDeleted, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -371,10 +406,10 @@ export const undoTask = async (req: express.Request, res: express.Response) => {
     TaskUndoActions.Complete,
   ];
   if (!userId || !taskId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
   if (!undoActions.includes(undo)) {
-    return missingParamMessage(
+    return badRequestError(
       action,
       "Wrong undo action, Please check parameters and pass delete, archive or complete options only",
       res
@@ -384,11 +419,11 @@ export const undoTask = async (req: express.Request, res: express.Response) => {
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "User not found", res);
+      return notFoundError(action, "User not found", res);
     }
     const task = await getTaskById(taskId, userId);
     if (!task) {
-      return notFoundMessage(action, "task not found", res);
+      return notFoundError(action, "task not found", res);
     }
 
     switch (undo) {
@@ -413,9 +448,11 @@ export const undoTask = async (req: express.Request, res: express.Response) => {
       isCompleted: task.isCompleted,
       isArchived: task.isArchived,
     };
-    return res.status(200).json(APIResponse.success(responseObj, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(responseObj, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -427,24 +464,26 @@ export const markAsArchive = async (
   const action = "Archive Task";
 
   if (!taskId || !userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
     const task = await getTaskById(taskId, userId);
     if (!task) {
-      return notFoundMessage(action, "task not found", res);
+      return notFoundError(action, "task not found", res);
     }
     task.isArchived = true;
     task.save();
 
-    return res.status(200).json(APIResponse.success(task.isDeleted, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(task.isArchived, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
 
@@ -456,34 +495,68 @@ export const markAsComplete = async (
   const action = "Complete Task";
 
   if (!taskId || !userId) {
-    return missingParamMessage(action, "Missing parameters", res);
+    return badRequestError(action, "Missing parameters", res);
   }
 
   try {
     const user = await getUserById(userId);
     if (!user) {
-      return notFoundMessage(action, "user not found", res);
+      return notFoundError(action, "user not found", res);
     }
     const task = await getTaskById(taskId, userId);
     if (!task) {
-      return notFoundMessage(action, "task not found", res);
+      return notFoundError(action, "task not found", res);
     }
     if (task.isCompleted) {
       return res
-        .status(201)
+        .status(APIStatusCode.Conflict)
         .json(
-          APIResponse.success(
-            task.isCompleted,
+          APIResponse.error(
             action,
-            "Task already completed"
+            "Task is already marked completed",
+            APIStatusCode.Conflict
           )
         );
     }
     task.isCompleted = true;
     task.save();
 
-    return res.status(200).json(APIResponse.success(task.isCompleted, action));
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(task.isCompleted, action));
   } catch (err) {
-    return defaultErrorMessage(action, err, res);
+    return interalServerError(action, err, res);
   }
 };
+
+const setupRecurringTasks = (task: any) => {
+  const tasks = [];
+  let currentDate = dayjs(task.taskStartDate);
+  const finalDate = dayjs(task.taskEndDate);
+  while (
+    currentDate.isBefore(finalDate) ||
+    currentDate.isSame(finalDate, "day")
+  ) {
+    const newTask = {
+      currentListId: task.currentListId,
+      previousListID: task.previousListID,
+      userId: task.userId,
+      taskTitle: task.taskTitle,
+      creationDate: startOfToday(),
+      updationDate: startOfToday(),
+      taskStartDate: startOfDay(currentDate),
+      taskEndDate: startOfDay(currentDate),
+      taskDesc: task.taskDesc,
+      occurance: task.occurance,
+      priority: task.priority,
+      reminder: task.reminder,
+      isRecurring: task.isRecurring,
+      isDeleted: false,
+      isArchived: false,
+      isCompleted: false,
+    };
+    tasks.push(newTask);
+    currentDate = currentDate.add(1, "day");
+  }
+  return tasks;
+}
