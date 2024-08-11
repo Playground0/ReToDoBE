@@ -3,7 +3,7 @@ import {
   createlist,
   deleteListById,
   getListById,
-  getListByName,
+  getListByNameIfLive,
   getListsByUser,
 } from "../models/schemas/todo-list";
 import { APIResponse } from "../models/api-response.model";
@@ -15,51 +15,44 @@ import {
 } from "../utils/error-message-handler";
 import { ListUndoActions } from "../models/constants/todo.constants";
 import { APIStatusCode } from "../models/constants/status.constants";
+import { startOfToday } from "../utils/date-converter";
+import { getCustomListTasks } from "../models/schemas/todo-task";
 
 export const createNewList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const {
-    listTitle,
-    userId,
-    sharedUsrID,
-    creationDate,
-    updationDate,
-    tasks,
-    isDeleted,
-    isHidden,
-    isArchived,
-  } = req.body;
+  const { listTitle, userId } = req.body;
   const action = "Create new list";
 
-  const existingList = await getListByName(listTitle, userId);
+  const existingList = await getListByNameIfLive(listTitle, userId);
   if (existingList) {
     return res
       .status(APIStatusCode.Conflict)
-      .json(APIResponse.error(action, "List with same name exists", APIStatusCode.Conflict));
+      .json(
+        APIResponse.error(
+          action,
+          "List with same name exists",
+          APIStatusCode.Conflict
+        )
+      );
   }
 
   try {
     const list = await createlist({
       listTitle,
       userId,
-      sharedUsrID,
-      creationDate,
-      updationDate,
-      tasks,
-      isDeleted,
-      isHidden,
-      isArchived,
+      sharedUsrID: [],
+      creationDate: startOfToday(),
+      updationDate: startOfToday(),
+      tasks: [],
+      isDeleted: false,
+      isHidden: false,
+      isArchived: false,
     });
-    let responseBody = {
-      id: list._id,
-      title: list.listTitle,
-      userId: list.userId,
-    };
     return res
       .status(APIStatusCode.Created)
-      .json(APIResponse.success(responseBody, action, APIStatusCode.Created))
+      .json(APIResponse.success(list, action, APIStatusCode.Created))
       .end();
   } catch (err) {
     return interalServerError(action, err, res);
@@ -83,32 +76,9 @@ export const getAllList = async (
     }
 
     const lists = await getListsByUser(userId);
-    return res.status(APIStatusCode.OK).json(APIResponse.success(lists, action)).end();
-  } catch (err) {
-    return interalServerError(action, err, res);
-  }
-};
-
-export const getList = async (req: express.Request, res: express.Response) => {
-  const { listId, userId } = req.body;
-  const action = "Get List";
-
-  if (!listId || !userId) {
-    return badRequestError(action, "Missing parameters", res);
-  }
-
-  try {
-    const user = await getUserById(userId);
-    if (!user) {
-      return notFoundError(action, "User not found", res);
-    }
-    const list = await getListById(listId, userId);
-    if (!list) {
-      return notFoundError(action, "List not found", res);
-    }
     return res
       .status(APIStatusCode.OK)
-      .json(APIResponse.success(list, action, APIStatusCode.OK))
+      .json(APIResponse.success(lists, action))
       .end();
   } catch (err) {
     return interalServerError(action, err, res);
@@ -119,7 +89,7 @@ export const updateList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { listId, userId, listTitle, sharedUsrID, updationDate } = req.body;
+  const { listId, userId, listTitle, sharedUsrID } = req.body;
   const action = "Update list";
 
   if (!listId) {
@@ -138,10 +108,13 @@ export const updateList = async (
 
     list.listTitle = listTitle;
     list.sharedUsrID = sharedUsrID;
-    list.updationDate = updationDate;
+    list.updationDate = startOfToday();
     list.save();
 
-    return res.status(APIStatusCode.OK).json(APIResponse.success(list, action)).end();
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(list, action))
+      .end();
   } catch (err) {
     return interalServerError(action, err, res);
   }
@@ -168,10 +141,26 @@ export const softDeleteList = async (
     if (list.isDeleted) {
       return res
         .status(APIStatusCode.Conflict)
-        .json(APIResponse.error(action, "List is already deleted", APIStatusCode.Conflict));
+        .json(
+          APIResponse.error(
+            action,
+            "List is already deleted",
+            APIStatusCode.Conflict
+          )
+        );
     }
     list.isDeleted = true;
+    list.updationDate = startOfToday();
     await list.save();
+
+    const tasks = await getCustomListTasks(userId, listId);
+
+    tasks.forEach((res) => {
+      res.isDeletedWithList = true;
+      res.updationDate = startOfToday();
+      res.save();
+    });
+
     let data = {
       listId: list.id,
       listTitle: list.listTitle,
@@ -212,11 +201,25 @@ export const archiveList = async (
     if (list.isArchived) {
       return res
         .status(APIStatusCode.Conflict)
-        .json(APIResponse.error(action, "List is already Archived", APIStatusCode.Conflict));
+        .json(
+          APIResponse.error(
+            action,
+            "List is already Archived",
+            APIStatusCode.Conflict
+          )
+        );
     }
 
     list.isArchived = true;
     list.save();
+
+    const tasks = await getCustomListTasks(userId, listId);
+
+    tasks.forEach((res) => {
+      res.isArchivedWithList = true;
+      res.updationDate = startOfToday();
+      res.save();
+    });
 
     let responseBody = {
       listId: list._id,
@@ -255,11 +258,25 @@ export const hideList = async (req: express.Request, res: express.Response) => {
     if (list.isHidden) {
       return res
         .status(APIStatusCode.Conflict)
-        .json(APIResponse.error(action, "List is already hidden", APIStatusCode.Conflict));
+        .json(
+          APIResponse.error(
+            action,
+            "List is already hidden",
+            APIStatusCode.Conflict
+          )
+        );
     }
 
     list.isHidden = true;
     list.save();
+
+    const tasks = await getCustomListTasks(userId, listId);
+
+    tasks.forEach((res) => {
+      res.isHiddenWithList = true;
+      res.updationDate = startOfToday();
+      res.save();
+    });
 
     let responseBody = {
       listId: list._id,
@@ -300,25 +317,33 @@ export const deleteList = async (
     }
 
     await deleteListById(listId);
-    return res.status(APIStatusCode.NoContent).json(APIResponse.success([], action,APIStatusCode.NoContent)).end();
+    return res
+      .status(APIStatusCode.NoContent)
+      .json(APIResponse.success([], action, APIStatusCode.NoContent))
+      .end();
   } catch (error) {
     return interalServerError(action, error, res);
   }
 };
 
-export const undoList = async (
-  req: express.Request,
-  res: express.Response
-) => {
+export const undoList = async (req: express.Request, res: express.Response) => {
   const { userId, listId } = req.body;
   const undo: string = req.params.undoAction;
   const action = "Undo Delete list";
-  const undoActions : string[] = [ListUndoActions.Archive,ListUndoActions.Delete, ListUndoActions.Hide]
+  const undoActions: string[] = [
+    ListUndoActions.Archive,
+    ListUndoActions.Delete,
+    ListUndoActions.Hide,
+  ];
   if (!userId || !listId) {
     return badRequestError(action, "Missing parameters", res);
   }
-  if ( !undoActions.includes(undo)) {
-    return badRequestError(action, "Wrong undo action, Please check parameters and pass delete, archive or hide options only", res);
+  if (!undoActions.includes(undo)) {
+    return badRequestError(
+      action,
+      "Wrong undo action, Please check parameters and pass delete, archive or hide options only",
+      res
+    );
   }
 
   try {
@@ -331,29 +356,67 @@ export const undoList = async (
       return notFoundError(action, "list not found", res);
     }
 
+    let isTaskDeletedWithList = false;
+    let isTaskArchivedWithList = false;
+    let isTaskHiddenWithList = false;
+
     switch (undo) {
       case ListUndoActions.Delete: {
         list.isDeleted = !list.isDeleted;
+        isTaskDeletedWithList = true;
         break;
       }
       case ListUndoActions.Hide: {
         list.isHidden = !list.isHidden;
+        isTaskHiddenWithList = true;
         break;
       }
       case ListUndoActions.Archive: {
         list.isArchived = !list.isArchived;
+        isTaskArchivedWithList = true;
         break;
       }
       default:
         break;
     }
     list.save();
+
+    const tasks = await getCustomListTasks(
+      userId,
+      listId,
+      isTaskDeletedWithList,
+      isTaskArchivedWithList,
+      isTaskHiddenWithList
+    );
+
+    tasks.forEach((task) => {
+      switch (undo) {
+        case ListUndoActions.Delete: {
+          task.isDeletedWithList = false;
+          break;
+        }
+        case ListUndoActions.Hide: {
+          task.isHiddenWithList = false;
+          break;
+        }
+        case ListUndoActions.Archive: {
+          task.isArchivedWithList = false;
+          break;
+        }
+        default:
+          break;
+      }
+      task.save();
+    });
+
     const responseObj = {
       isDeleted: list.isDeleted,
       isHidden: list.isHidden,
-      isArchived: list.isArchived
-    }
-    return res.status(APIStatusCode.OK).json(APIResponse.success(responseObj, action));
+      isArchived: list.isArchived,
+    };
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(responseObj, action));
   } catch (err) {
     return interalServerError(action, err, res);
   }
