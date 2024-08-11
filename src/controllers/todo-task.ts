@@ -11,6 +11,7 @@ import {
   deleteTaskById,
   getArchivedTasks,
   getCompletedTasks,
+  getCustomListTasks,
   getDeletedTasks,
   getInboxTasks,
   getTaskById,
@@ -21,6 +22,7 @@ import { TaskUndoActions } from "../models/constants/todo.constants";
 import { startOfDay, startOfToday } from "../utils/date-converter";
 import { APIStatusCode } from "../models/constants/status.constants";
 import dayjs from "dayjs";
+import { getListById } from "../models/schemas/todo-list";
 
 //TODO: Add new enums for the constants
 // like Create Task, Get Task Details, etc
@@ -71,6 +73,9 @@ export const createNewTask = async (
       isDeleted: false,
       isArchived: false,
       isCompleted: false,
+      isDeletedWithList: false,
+      isArchivedWithList: false,
+      isHiddenWithList: false,
     };
     if (!isRecurring) {
       tasks.push(newTask);
@@ -528,6 +533,34 @@ export const markAsComplete = async (
     return interalServerError(action, err, res);
   }
 };
+
+export const customListTasks = async(req: express.Request, res: express.Response) => {
+  const userId = req.params.userId;
+  const listId = req.params.listId;
+  const action = "Get Custom list tasks";
+  if (!userId) {
+    return badRequestError(action, "Missing parameters", res);
+  }
+
+  try {
+    const user = await getUserById(userId);
+    if (!user) {
+      return notFoundError(action, "user not found", res);
+    }
+
+    const list = await getListById(listId,userId);
+    if(!list){
+      return notFoundError(action, "List not found",res)
+    }
+
+    const tasks = await getCustomListTasks(userId, listId);
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(tasks, action));
+  } catch (err) {
+    return interalServerError(action, err, res);
+  }
+}
 
 const setupRecurringTasks = (task: any) => {
   const tasks = [];
