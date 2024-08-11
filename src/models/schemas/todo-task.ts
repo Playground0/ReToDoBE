@@ -18,6 +18,9 @@ export const TodoTaskSchema = new mongoose.Schema({
   isCompleted: { type: Boolean, required: false },
   isDeleted: { type: Boolean, required: false },
   isArchived: { type: Boolean, required: false },
+  isDeletedWithList: { type: Boolean, required: false },
+  isArchivedWithList: { type: Boolean, required: false },
+  isHiddenWithList: { type: Boolean, required: false },
 });
 
 export const TodoTaskModel = mongoose.model("TodoTask", TodoTaskSchema);
@@ -42,19 +45,40 @@ export const getTaskByUser = (userId: string) =>
 export const getInboxTasks = (userId: string) =>
   TodoTaskModel.find({
     userId: userId,
+    isDeletedWithList: false,
+    isArchivedWithList: false,
+    isHiddenWithList: false,
     isCompleted: false,
     isArchived: false,
     isDeleted: false,
   });
 
 export const getDeletedTasks = (userId: string) =>
-  TodoTaskModel.find({ userId: userId, isDeleted: true });
+  TodoTaskModel.find({
+    userId: userId,
+    isDeleted: true,
+    isDeletedWithList: false,
+    isArchivedWithList: false,
+    isHiddenWithList: false,
+  });
 
 export const getArchivedTasks = (userId: string) =>
-  TodoTaskModel.find({ userId: userId, isArchived: true });
+  TodoTaskModel.find({
+    userId: userId,
+    isArchived: true,
+    isDeletedWithList: false,
+    isArchivedWithList: false,
+    isHiddenWithList: false,
+  });
 
 export const getCompletedTasks = (userId: string) =>
-  TodoTaskModel.find({ userId: userId, isCompleted: true });
+  TodoTaskModel.find({
+    userId: userId,
+    isCompleted: true,
+    isDeletedWithList: false,
+    isArchivedWithList: false,
+    isHiddenWithList: false,
+  });
 
 export const getRecurringTasks = (userId: string) =>
   TodoTaskModel.find({
@@ -63,6 +87,9 @@ export const getRecurringTasks = (userId: string) =>
     isCompleted: false,
     isArchived: false,
     isDeleted: false,
+    isDeletedWithList: false,
+    isArchivedWithList: false,
+    isHiddenWithList: false,
   });
 
 export const getTodayTasks = (userId: string) =>
@@ -75,6 +102,9 @@ export const getTodayTasks = (userId: string) =>
     isCompleted: false,
     isArchived: false,
     isDeleted: false,
+    isDeletedWithList: false,
+    isArchivedWithList: false,
+    isHiddenWithList: false,
   });
 
 export const getUpcommingTasks = (userId: string) =>
@@ -86,6 +116,27 @@ export const getUpcommingTasks = (userId: string) =>
     isCompleted: false,
     isArchived: false,
     isDeleted: false,
+    isDeletedWithList: false,
+    isArchivedWithList: false,
+    isHiddenWithList: false,
+  });
+
+export const getCustomListTasks = (
+  userId: string,
+  listId: string,
+  isDeletedWithList = false,
+  isArchivedWithList = false,
+  isHiddenWithList = false
+) =>
+  TodoTaskModel.find({
+    userId: userId,
+    currentListId: listId,
+    isCompleted: false,
+    isArchived: false,
+    isDeleted: false,
+    isArchivedWithList: isArchivedWithList,
+    isDeletedWithList: isDeletedWithList,
+    isHiddenWithList: isHiddenWithList,
   });
 
 export const updateTaskByID = (id: string, values: Record<string, any>) =>

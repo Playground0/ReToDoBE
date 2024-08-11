@@ -3,6 +3,7 @@ import {
   archivedTasks,
   completedTasks,
   createNewTask,
+  customListTasks,
   deletedTasks,
   getTaskDetails,
   inboxTasks,
@@ -32,4 +33,5 @@ export default (router: express.Router) => {
   router.patch("/task/undo/:undoAction", undoTask);
   router.patch("/task/archive", markAsArchive);
   router.patch("/task/complete", markAsComplete);
+  router.get("/task/custom-list/:userId/:listId", customListTasks);
 };
