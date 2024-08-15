@@ -19,3 +19,7 @@ export function endOfTomorrow() {
 export function startOfDay(date: Dayjs){
   return dayjs(date).startOf('day').format("YYYY-MM-DDTHH:mm:ss")
 }
+
+export function formatDate(date: Dayjs){
+  return dayjs(date).format("YYYY-MM-DDTHH:mm:ss")
+}

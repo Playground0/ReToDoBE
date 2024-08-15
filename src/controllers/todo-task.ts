@@ -19,7 +19,7 @@ import {
   getUpcommingTasks,
 } from "../models/schemas/todo-task";
 import { TaskUndoActions } from "../models/constants/todo.constants";
-import { startOfDay, startOfToday } from "../utils/date-converter";
+import { formatDate, startOfToday } from "../utils/date-converter";
 import { APIStatusCode } from "../models/constants/status.constants";
 import dayjs from "dayjs";
 import { getListById } from "../models/schemas/todo-list";
@@ -577,8 +577,8 @@ const setupRecurringTasks = (task: any) => {
       taskTitle: task.taskTitle,
       creationDate: startOfToday(),
       updationDate: startOfToday(),
-      taskStartDate: startOfDay(currentDate),
-      taskEndDate: startOfDay(currentDate),
+      taskStartDate: formatDate(currentDate),
+      taskEndDate: formatDate(currentDate),
       taskDesc: task.taskDesc,
       occurance: task.occurance,
       priority: task.priority,
@@ -587,6 +587,9 @@ const setupRecurringTasks = (task: any) => {
       isDeleted: false,
       isArchived: false,
       isCompleted: false,
+      isDeletedWithList: false,
+      isArchivedWithList: false,
+      isHiddenWithList: false,
     };
     tasks.push(newTask);
     currentDate = currentDate.add(1, "day");
