@@ -12,15 +12,15 @@ export const userDetails = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userID = req.params.userID;
+  const userId = req.params.userId;
   const action = "User Details";
 
-  if (!userID) {
+  if (!userId) {
     return badRequestError(action, "Please pass user Id", res);
   }
 
   try {
-    const user = await getUserById(userID);
+    const user = await getUserById(userId);
     if (!user) {
       return notFoundError(action, "User does not exists", res);
     }
@@ -46,15 +46,15 @@ export const updateUserDetails = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { userID, email, username, fullname, age, profilePicture } = req.body;
+  const { userId, email, username, fullname, age, profilePicture } = req.body;
   const action = "Update user details";
 
-  if (!userID) {
+  if (!userId) {
     return badRequestError(action, "Please pass userId", res);
   }
 
   try {
-    const user = await getUserById(userID);
+    const user = await getUserById(userId);
 
     if (!user) {
       return notFoundError(action, "User not found", res);
@@ -81,11 +81,11 @@ export const deleteAccount = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userID = req.params.userID;
+  const userId = req.params.userID;
   const action = "Delete account";
 
   try {
-    const user = await getUserById(userID);
+    const user = await getUserById(userId);
     if (!user) {
       return notFoundError(
         action,
@@ -94,7 +94,7 @@ export const deleteAccount = async (
       );
     }
 
-    await deleteUserById(userID);
+    await deleteUserById(userId);
 
     return res
       .status(APIStatusCode.NoContent)
