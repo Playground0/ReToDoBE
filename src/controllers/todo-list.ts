@@ -5,6 +5,7 @@ import {
   getListById,
   getListByNameIfLive,
   getListsByUser,
+  getStashedListByUser,
 } from "../models/schemas/todo-list";
 import { APIResponse } from "../models/api-response.model";
 import { getUserById } from "../models/schemas/users";
@@ -419,5 +420,92 @@ export const undoList = async (req: express.Request, res: express.Response) => {
       .json(APIResponse.success(responseObj, action));
   } catch (err) {
     return interalServerError(action, err, res);
+  }
+};
+
+export const archivedList = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const userId = req.params.userId;
+  const action = "Get Archived Lists";
+
+  if (!userId) {
+    return badRequestError(action, "Pass user id", res);
+  }
+
+  try {
+    const user = await getUserById(userId);
+
+    if (!user) {
+      return notFoundError(action, "User not found", res);
+    }
+
+    const list = await getStashedListByUser(userId, true, false, false);
+
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(list, action, APIStatusCode.OK))
+      .end();
+  } catch (error) {
+    return interalServerError(action, error, res);
+  }
+};
+
+export const deletedList = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const userId = req.params.userId;
+  const action = "Get Archived Lists";
+
+  if (!userId) {
+    return badRequestError(action, "Pass user id", res);
+  }
+
+  try {
+    const user = await getUserById(userId);
+
+    if (!user) {
+      return notFoundError(action, "User not found", res);
+    }
+
+    const list = await getStashedListByUser(userId, false, true, false);
+
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(list, action, APIStatusCode.OK))
+      .end();
+  } catch (error) {
+    return interalServerError(action, error, res);
+  }
+};
+
+export const hiddenList = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const userId = req.params.userId;
+  const action = "Get Archived Lists";
+
+  if (!userId) {
+    return badRequestError(action, "Pass user id", res);
+  }
+
+  try {
+    const user = await getUserById(userId);
+
+    if (!user) {
+      return notFoundError(action, "User not found", res);
+    }
+
+    const list = await getStashedListByUser(userId, false, false, true);
+
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(list, action, APIStatusCode.OK))
+      .end();
+  } catch (error) {
+    return interalServerError(action, error, res);
   }
 };
