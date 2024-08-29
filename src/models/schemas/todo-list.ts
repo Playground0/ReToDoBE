@@ -39,5 +39,12 @@ export const getListsByUser = (userId: string) =>
     isDeleted: false,
     isHidden: false,
   });
+  export const getStashedListByUser = (userId: string, isArchived = false, isDeleted = false, isHidden = false) =>
+    TodoListModel.find({
+      userId: userId,
+      isArchived: isArchived,
+      isDeleted: isDeleted,
+      isHidden: isHidden,
+    });
 export const deleteListById = (id: string) =>
   TodoListModel.findOneAndDelete({ _id: id });
