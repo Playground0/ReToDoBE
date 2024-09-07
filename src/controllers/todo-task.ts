@@ -17,6 +17,7 @@ import {
   getTaskById,
   getTodayTasks,
   getUpcommingTasks,
+  searchResults,
 } from "../models/schemas/todo-task";
 import { TaskUndoActions } from "../models/constants/todo.constants";
 import { formatDate, startOfToday } from "../utils/date-converter";
@@ -554,6 +555,31 @@ export const customListTasks = async(req: express.Request, res: express.Response
     }
 
     const tasks = await getCustomListTasks(userId, listId);
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success(tasks, action));
+  } catch (err) {
+    return interalServerError(action, err, res);
+  }
+}
+
+export const searchTasks = async (req: express.Request, res: express.Response) => {
+  const searchQuery =  typeof req.query.search === 'string' ? req.query.search  :  ''
+  const userId = req.params.userId;
+  const action = 'Search tasks'
+
+  if(!userId){
+    return badRequestError(action,"Please pass user Id", res);
+  }
+  try {
+    const user = await getUserById(userId);
+
+    if(!user){
+      return notFoundError(action,'user not found',res);
+    }
+    
+    const tasks = await searchResults(searchQuery,userId)
+
     return res
       .status(APIStatusCode.OK)
       .json(APIResponse.success(tasks, action));
