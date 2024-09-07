@@ -144,3 +144,15 @@ export const updateTaskByID = (id: string, values: Record<string, any>) =>
 
 export const deleteTaskById = (id: string) =>
   TodoTaskModel.findOneAndDelete({ _id: id });
+
+export const searchResults = (searchQuery: string, userId: string) =>
+  TodoTaskModel.find({
+    userId: userId,
+    taskTitle: { $regex: searchQuery, $options: "i" },
+    isCompleted: false,
+    isArchived: false,
+    isDeleted: false,
+    isArchivedWithList: false,
+    isDeletedWithList: false,
+    isHiddenWithList: false,
+  });
