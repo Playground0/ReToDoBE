@@ -10,6 +10,7 @@ import {
   markAsArchive,
   markAsComplete,
   permaDeleteTask,
+  searchTasks,
   softDeleteTask,
   todayTasks,
   undoTask,
@@ -34,4 +35,5 @@ export default (router: express.Router) => {
   router.patch("/task/archive", markAsArchive);
   router.patch("/task/complete", markAsComplete);
   router.get("/task/custom-list/:userId/:listId", customListTasks);
+  router.get("/task/:userId?", searchTasks)
 };
