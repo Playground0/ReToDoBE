@@ -15,28 +15,19 @@ import { APIStatusCode } from "../models/constants/status.constants";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { MailOptions } from "nodemailer/lib/json-transport";
+import { ILoginResponse, INewUser, IRegisterRequest, IRegisterResponse } from "../models/authentication.model";
 
 export const register = async (req: express.Request, res: express.Response) => {
   // TODO: Create model for user and assign it
-  const {
-    email,
-    password,
-    username,
-    phone,
-    fullname,
-    age,
-    city,
-    displaypicture,
-    userRole,
-  } = req.body;
+  const userRequest: IRegisterRequest = req.body;
   const action = "Sign Up";
 
-  if (!email || !password || !username || !userRole) {
+  if (!userRequest.email || !userRequest.password || !userRequest.username || !userRequest.userRole) {
     return badRequestError(action, "Sign Up failed, missing Info", res);
   }
 
   try {
-    const existingUser = await getUserByEmail(email);
+    const existingUser = await getUserByEmail(userRequest.email);
     if (existingUser) {
       return res
         .status(APIStatusCode.Conflict)
@@ -44,22 +35,23 @@ export const register = async (req: express.Request, res: express.Response) => {
     }
 
     const salt = random();
-    const user = await createUser({
-      email,
-      username,
+    const newUser : INewUser = {
+      email: userRequest.email,
+      username: userRequest.username,
       authentication: {
-        salt,
-        password: authentication(salt, password),
+        salt: salt,
+        password: authentication(salt, userRequest.password),
         sessionToken: [],
       },
-      fullname,
-      phone,
-      city,
-      age,
-      displaypicture,
-      userRole,
-    });
-    let responseBody = {
+      fullname: userRequest.fullname,
+      phone: userRequest.phone,
+      city: userRequest.city,
+      age: userRequest.age,
+      displaypicture: userRequest.displaypicture,
+      userRole: userRequest.userRole,
+    }
+    const user = await createUser(newUser);
+    let responseBody: IRegisterResponse = {
       username: user.username,
       email: user.email,
     };
@@ -120,7 +112,7 @@ export const login = async (req: express.Request, res: express.Response) => {
       authentication(salt, user._id.toString())
     );
     await user.save();
-    let responseBody = {
+    let responseBody: ILoginResponse = {
       id: user.id,
       email: user.email,
       username: user.username,

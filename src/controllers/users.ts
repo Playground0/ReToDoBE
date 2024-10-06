@@ -17,6 +17,7 @@ import {
   deletedLists,
   hiddenLists,
 } from "../models/schemas/todo-list";
+import { IUserUpdateRequest, IUserUpdateResponse } from "../models/users.model";
 
 export const userDetails = async (
   req: express.Request,
@@ -56,31 +57,39 @@ export const updateUserDetails = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { userId, email, username, fullname, age, profilePicture } = req.body;
   const action = "Update user details";
-
-  if (!userId) {
-    return badRequestError(action, "Please pass userId", res);
-  }
-
   try {
-    const user = await getUserById(userId);
+    const userRequest = req.body as IUserUpdateRequest;
+    if (!userRequest.userId) {
+      return badRequestError(action, "Please pass userId", res);
+    }
+    const user = await getUserById(userRequest.userId);
 
     if (!user) {
       return notFoundError(action, "User not found", res);
     }
 
-    user.email = email;
-    user.username = username;
-    user.fullname = fullname;
-    user.age = age;
-    user.profilePicture = profilePicture;
+    user.email = userRequest.email;
+    user.username = userRequest.username;
+    user.fullname = userRequest.fullname;
+    user.age = userRequest.age;
+    user.profilePicture = userRequest.profilePicture ?userRequest.profilePicture : '';
 
     user.save();
 
+    const response : IUserUpdateResponse = {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      fullname: user.fullname?.toString(),
+      age: user.age?.toString(),
+      userRole: user.userRole?.toString(),
+      profilePicture: user.profilePicture?.toString()
+    }
+
     return res
       .status(APIStatusCode.OK)
-      .json(APIResponse.success(user, action))
+      .json(APIResponse.success(response, action))
       .end();
   } catch (error) {
     return interalServerError(action, error, res);
@@ -215,7 +224,7 @@ export const stash = async (req: express.Request, res: express.Response) => {
   }
 };
 
-const mapStashedTasks = (stashedArray :any[]) : any[] => {
+const mapStashedTasks = (stashedArray: any[]): any[] => {
   if (!stashedArray.length) {
     return [];
   }
@@ -233,12 +242,12 @@ const mapStashedTasks = (stashedArray :any[]) : any[] => {
       isDeletedWithList: task.isDeletedWithList,
       isArchivedWithList: task.isArchivedWithList,
       isHiddenWithList: task.isHiddenWithList,
-      isTask: true
+      isTask: true,
     };
   });
 };
 
-const mapStashedLists = (stashedArray :any[]) : any[] => {
+const mapStashedLists = (stashedArray: any[]): any[] => {
   if (!stashedArray.length) {
     return [];
   }
@@ -251,7 +260,7 @@ const mapStashedLists = (stashedArray :any[]) : any[] => {
       isDeleted: list.isDeleted,
       isArchived: list.isArchived,
       isHidden: list.isHidden,
-      isTask: false
+      isTask: false,
     };
   });
 };
