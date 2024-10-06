@@ -24,6 +24,7 @@ import { formatDate, startOfToday } from "../utils/date-converter";
 import { APIStatusCode } from "../models/constants/status.constants";
 import dayjs from "dayjs";
 import { getListById } from "../models/schemas/todo-list";
+import { ICreateTaskRequest, INewTask, IUndoTaskResponse, IUpdateTaskRequest } from "../models/todo-task.model";
 
 //TODO: Add new enums for the constants
 // like Create Task, Get Task Details, etc
@@ -32,45 +33,34 @@ export const createNewTask = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const {
-    currentListId,
-    previousListID,
-    userId,
-    taskTitle,
-    taskStartDate,
-    taskEndDate,
-    taskDesc,
-    occurance,
-    priority,
-    reminder,
-    isRecurring,
-  } = req.body;
   const action = "Create Task";
-  let tasks = [];
-
-  if (!userId) {
-    return badRequestError(action, "Missing user id", res);
-  }
-
   try {
-    const user = await getUserById(userId);
+    const taskRequest: ICreateTaskRequest = req.body;
+
+    let tasks: INewTask[] = [];
+
+    if (!taskRequest.userId) {
+      return badRequestError(action, "Missing user id", res);
+    }
+
+    const user = await getUserById(taskRequest.userId);
     if (!user) {
       return notFoundError(action, "User not found", res);
     }
-    const newTask = {
-      currentListId: currentListId,
-      previousListID: previousListID,
-      userId: userId,
-      taskTitle: taskTitle,
+    const newTask: INewTask = {
+      currentListId: taskRequest.currentListId,
+      previousListID: taskRequest.previousListID,
+      userId: taskRequest.userId,
+      taskTitle: taskRequest.taskTitle,
       creationDate: startOfToday(),
       updationDate: startOfToday(),
-      taskStartDate: taskStartDate,
-      taskEndDate: taskEndDate,
-      taskDesc: taskDesc,
-      occurance: occurance,
-      priority: priority,
-      reminder: reminder,
-      isRecurring: isRecurring,
+      taskStartDate: taskRequest.taskStartDate,
+      taskEndDate: taskRequest.taskEndDate,
+      taskDesc: taskRequest.taskDesc,
+      occurance: taskRequest.occurance,
+      priority: taskRequest.priority,
+      reminder: taskRequest.reminder,
+      isRecurring: taskRequest.isRecurring,
       isDeleted: false,
       isArchived: false,
       isCompleted: false,
@@ -78,7 +68,7 @@ export const createNewTask = async (
       isArchivedWithList: false,
       isHiddenWithList: false,
     };
-    if (!isRecurring) {
+    if (!taskRequest.isRecurring) {
       tasks.push(newTask);
       const response = await createTask(tasks);
       return res
@@ -128,54 +118,41 @@ export const updateTaskDetails = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const {
-    taskId,
-    currentListId,
-    previousListID,
-    userId,
-    taskTitle,
-    taskStartDate,
-    taskEndDate,
-    taskDesc,
-    occurance,
-    priority,
-    reminder,
-    isRecurring,
-  } = req.body;
+  const taskRequest: IUpdateTaskRequest  = req.body;
   const action = "Update Task";
 
-  if (!taskId || !userId) {
+  if (!taskRequest.taskId || !taskRequest.userId) {
     return badRequestError(action, "Missing parameters", res);
   }
 
   try {
-    const user = await getUserById(userId);
+    const user = await getUserById(taskRequest.userId);
     if (!user) {
       return notFoundError(action, "user not found", res);
     }
-    const task = await getTaskById(taskId, userId);
+    const task = await getTaskById(taskRequest.taskId, taskRequest.userId);
     if (!task) {
       return notFoundError(action, "task not found", res);
     }
-    task.currentListId = currentListId;
-    task.previousListID = previousListID;
-    task.taskTitle = taskTitle;
-    task.taskStartDate = taskStartDate;
-    task.taskEndDate = taskEndDate;
+    task.currentListId = taskRequest.currentListId;
+    task.previousListID = taskRequest.previousListID;
+    task.taskTitle = taskRequest.taskTitle;
+    task.taskStartDate = taskRequest.taskStartDate;
+    task.taskEndDate = taskRequest.taskEndDate;
     task.updationDate = startOfToday();
-    task.taskDesc = taskDesc;
-    task.occurance = occurance;
-    task.priority = priority;
-    task.reminder = reminder;
-    task.isRecurring = isRecurring;
+    task.taskDesc = taskRequest.taskDesc;
+    task.occurance = taskRequest.occurance;
+    task.priority = taskRequest.priority;
+    task.reminder = taskRequest.reminder;
+    task.isRecurring = taskRequest.isRecurring;
 
-    if (!isRecurring) {
+    if (!taskRequest.isRecurring) {
       task.save();
       return res
         .status(APIStatusCode.OK)
         .json(APIResponse.success(task, action));
     }
-    await deleteTaskById(task.id)
+    await deleteTaskById(task.id);
     const tasks = setupRecurringTasks(task);
     const response = await createTask(tasks);
     return res
@@ -449,7 +426,7 @@ export const undoTask = async (req: express.Request, res: express.Response) => {
         break;
     }
     task.save();
-    const responseObj = {
+    const responseObj: IUndoTaskResponse = {
       isDeleted: task.isDeleted,
       isCompleted: task.isCompleted,
       isArchived: task.isArchived,
@@ -535,7 +512,10 @@ export const markAsComplete = async (
   }
 };
 
-export const customListTasks = async(req: express.Request, res: express.Response) => {
+export const customListTasks = async (
+  req: express.Request,
+  res: express.Response
+) => {
   const userId = req.params.userId;
   const listId = req.params.listId;
   const action = "Get Custom list tasks";
@@ -549,9 +529,9 @@ export const customListTasks = async(req: express.Request, res: express.Response
       return notFoundError(action, "user not found", res);
     }
 
-    const list = await getListById(listId,userId);
-    if(!list){
-      return notFoundError(action, "List not found",res)
+    const list = await getListById(listId, userId);
+    if (!list) {
+      return notFoundError(action, "List not found", res);
     }
 
     const tasks = await getCustomListTasks(userId, listId);
@@ -561,24 +541,28 @@ export const customListTasks = async(req: express.Request, res: express.Response
   } catch (err) {
     return interalServerError(action, err, res);
   }
-}
+};
 
-export const searchTasks = async (req: express.Request, res: express.Response) => {
-  const searchQuery =  typeof req.query.search === 'string' ? req.query.search  :  ''
+export const searchTasks = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const searchQuery =
+    typeof req.query.search === "string" ? req.query.search : "";
   const userId = req.params.userId;
-  const action = 'Search tasks'
+  const action = "Search tasks";
 
-  if(!userId){
-    return badRequestError(action,"Please pass user Id", res);
+  if (!userId) {
+    return badRequestError(action, "Please pass user Id", res);
   }
   try {
     const user = await getUserById(userId);
 
-    if(!user){
-      return notFoundError(action,'user not found',res);
+    if (!user) {
+      return notFoundError(action, "user not found", res);
     }
-    
-    const tasks = await searchResults(searchQuery,userId)
+
+    const tasks = await searchResults(searchQuery, userId);
 
     return res
       .status(APIStatusCode.OK)
@@ -586,17 +570,17 @@ export const searchTasks = async (req: express.Request, res: express.Response) =
   } catch (err) {
     return interalServerError(action, err, res);
   }
-}
+};
 
-const setupRecurringTasks = (task: any) => {
-  const tasks = [];
+const setupRecurringTasks = (task: any): INewTask[] => {
+  const tasks: INewTask[] = [];
   let currentDate = dayjs(task.taskStartDate);
   const finalDate = dayjs(task.taskEndDate);
   while (
     currentDate.isBefore(finalDate) ||
     currentDate.isSame(finalDate, "day")
   ) {
-    const newTask = {
+    const newTask: INewTask = {
       currentListId: task.currentListId,
       previousListID: task.previousListID,
       userId: task.userId,
@@ -621,4 +605,4 @@ const setupRecurringTasks = (task: any) => {
     currentDate = currentDate.add(1, "day");
   }
   return tasks;
-}
+};
