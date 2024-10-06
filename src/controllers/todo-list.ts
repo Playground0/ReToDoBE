@@ -18,6 +18,7 @@ import { ListUndoActions } from "../models/constants/todo.constants";
 import { APIStatusCode } from "../models/constants/status.constants";
 import { startOfToday } from "../utils/date-converter";
 import { getCustomListTasks } from "../models/schemas/todo-task";
+import { IUndoListResponse, IUpdateList } from "../models/todo-list.model";
 
 export const createNewList = async (
   req: express.Request,
@@ -90,25 +91,25 @@ export const updateList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { listId, userId, listTitle, sharedUsrID } = req.body;
+  const listRequest: IUpdateList = req.body;
   const action = "Update list";
 
-  if (!listId) {
+  if (!listRequest.listId) {
     return badRequestError(action, "List id not passed", res);
   }
 
   try {
-    const user = await getUserById(userId);
+    const user = await getUserById(listRequest.userId);
     if (!user) {
       return notFoundError(action, "User not found", res);
     }
-    const list = await getListById(listId, userId);
+    const list = await getListById(listRequest.listId, listRequest.userId);
     if (!list) {
       return notFoundError(action, "List not found", res);
     }
 
-    list.listTitle = listTitle;
-    list.sharedUsrID = sharedUsrID;
+    list.listTitle = listRequest.listTitle;
+    list.sharedUsrID = listRequest.sharedUsrID;
     list.updationDate = startOfToday();
     list.save();
 
@@ -410,7 +411,7 @@ export const undoList = async (req: express.Request, res: express.Response) => {
       task.save();
     });
 
-    const responseObj = {
+    const responseObj: IUndoListResponse = {
       isDeleted: list.isDeleted,
       isHidden: list.isHidden,
       isArchived: list.isArchived,
