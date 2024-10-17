@@ -134,6 +134,9 @@ export const updateTaskDetails = async (
     if (!task) {
       return notFoundError(action, "task not found", res);
     }
+    if(!taskRequest.taskTitle) {
+      return notFoundError(action, "task title not found", res);
+    }
     task.currentListId = taskRequest.currentListId;
     task.previousListID = taskRequest.previousListID;
     task.taskTitle = taskRequest.taskTitle;
