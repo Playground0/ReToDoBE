@@ -1,5 +1,4 @@
 export interface IUserUpdateRequest {
-  userId: string;
   email: string;
   username: string;
   fullname?: string;
@@ -8,7 +7,6 @@ export interface IUserUpdateRequest {
 }
 
 export interface IUserUpdateResponse {
-  id: string;
   username: string;
   email: string;
   fullname: string | undefined;

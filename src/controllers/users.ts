@@ -19,15 +19,18 @@ import {
 } from "../models/schemas/todo-list";
 import { IUserUpdateRequest, IUserUpdateResponse } from "../models/users.model";
 
+const authCookieName = process.env.AUTH_COOKIE_NAME;
+const authRefreshCookieName = process.env.AUTH_REFRESH_COOKIE_NAME;
+
 export const userDetails = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "User Details";
 
   if (!userId) {
-    return badRequestError(action, "Please pass user Id", res);
+    return badRequestError(action, "No userId in the token, Something went terribly wrong!", res);
   }
 
   try {
@@ -58,12 +61,13 @@ export const updateUserDetails = async (
   res: express.Response
 ) => {
   const action = "Update user details";
+  const userId = req.user?.userId;
   try {
     const userRequest = req.body as IUserUpdateRequest;
-    if (!userRequest.userId) {
+    if (!userId) {
       return badRequestError(action, "Please pass userId", res);
     }
-    const user = await getUserById(userRequest.userId);
+    const user = await getUserById(userId);
 
     if (!user) {
       return notFoundError(action, "User not found", res);
@@ -78,7 +82,6 @@ export const updateUserDetails = async (
     user.save();
 
     const response : IUserUpdateResponse = {
-      id: user._id.toString(),
       username: user.username,
       email: user.email,
       fullname: user.fullname?.toString(),
@@ -100,8 +103,12 @@ export const deleteAccount = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Delete account";
+
+  if (!userId) {
+    return badRequestError(action, "Do not have a valid user id", res);
+  }
 
   try {
     const user = await getUserById(userId);
@@ -115,6 +122,17 @@ export const deleteAccount = async (
 
     await deleteUserById(userId);
 
+    res.clearCookie(authCookieName!, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+    res.clearCookie(authRefreshCookieName!, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+    
     return res
       .status(APIStatusCode.NoContent)
       .json(APIResponse.success([], action, APIStatusCode.NoContent))
@@ -128,8 +146,13 @@ export const logoutUserFromDevices = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { userId, sessionToken } = req.body;
+  const userId = req.user?.userId;
+  const { sessionToken } = req.body;
   const action = "Logout user from all devices";
+
+  if (!userId) {
+    return badRequestError(action, "Do not have a valid user id", res);
+  }
 
   try {
     const user = await getUserById(userId).select(
@@ -187,11 +210,11 @@ export const logoutUserFromDevices = async (
 };
 
 export const stash = async (req: express.Request, res: express.Response) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Stashed Items";
 
   if (!userId) {
-    return badRequestError(action, "Please pass user id", res);
+    return badRequestError(action, "Do not have a valid user id", res);
   }
   try {
     const user = await getUserById(userId);

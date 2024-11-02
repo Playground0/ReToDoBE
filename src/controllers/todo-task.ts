@@ -24,11 +24,15 @@ import { formatDate, startOfToday } from "../utils/date-converter";
 import { APIStatusCode } from "../models/constants/status.constants";
 import dayjs from "dayjs";
 import { getListById } from "../models/schemas/todo-list";
-import { ICreateTaskRequest, INewTask, IUndoTaskResponse, IUpdateTaskRequest } from "../models/todo-task.model";
+import {
+  ICreateTaskRequest,
+  INewTask,
+  IUndoTaskResponse,
+  IUpdateTaskRequest,
+} from "../models/todo-task.model";
 
 //TODO: Add new enums for the constants
 // like Create Task, Get Task Details, etc
-// and error messages like missing parameters, user not found, etc.
 export const createNewTask = async (
   req: express.Request,
   res: express.Response
@@ -36,21 +40,22 @@ export const createNewTask = async (
   const action = "Create Task";
   try {
     const taskRequest: ICreateTaskRequest = req.body;
+    const userId = req.user?.userId;
 
     let tasks: INewTask[] = [];
 
-    if (!taskRequest.userId) {
+    if (!userId) {
       return badRequestError(action, "Missing user id", res);
     }
 
-    const user = await getUserById(taskRequest.userId);
+    const user = await getUserById(userId);
     if (!user) {
       return notFoundError(action, "User not found", res);
     }
     const newTask: INewTask = {
       currentListId: taskRequest.currentListId,
       previousListID: taskRequest.previousListID,
-      userId: taskRequest.userId,
+      userId: userId,
       taskTitle: taskRequest.taskTitle,
       creationDate: startOfToday(),
       updationDate: startOfToday(),
@@ -73,13 +78,13 @@ export const createNewTask = async (
       const response = await createTask(tasks);
       return res
         .status(APIStatusCode.Created)
-        .json(APIResponse.success(response[0], action, APIStatusCode.Created));
+        .json(APIResponse.success({}, action, APIStatusCode.Created));
     }
     tasks = setupRecurringTasks(newTask);
     const response = await createTask(tasks);
     return res
       .status(APIStatusCode.Created)
-      .json(APIResponse.success(response, action, APIStatusCode.Created));
+      .json(APIResponse.success({}, action, APIStatusCode.Created));
   } catch (err) {
     return interalServerError(action, err, res);
   }
@@ -89,12 +94,16 @@ export const getTaskDetails = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const taskId = req.params.taskId;
   const action = "Get Task Details";
 
-  if (!userId || !taskId) {
+  if (!taskId) {
     return badRequestError(action, "Missing parameters", res);
+  }
+
+  if (!userId) {
+    return badRequestError(action, "Missing user id", res);
   }
 
   try {
@@ -118,23 +127,27 @@ export const updateTaskDetails = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const taskRequest: IUpdateTaskRequest  = req.body;
+  const taskRequest: IUpdateTaskRequest = req.body;
+  const userId = req.user?.userId;
   const action = "Update Task";
 
-  if (!taskRequest.taskId || !taskRequest.userId) {
+  if (!taskRequest.taskId || !userId) {
     return badRequestError(action, "Missing parameters", res);
+  }
+  if (!userId) {
+    return badRequestError(action, "Missing user id", res);
   }
 
   try {
-    const user = await getUserById(taskRequest.userId);
+    const user = await getUserById(userId);
     if (!user) {
       return notFoundError(action, "user not found", res);
     }
-    const task = await getTaskById(taskRequest.taskId, taskRequest.userId);
+    const task = await getTaskById(taskRequest.taskId, userId);
     if (!task) {
       return notFoundError(action, "task not found", res);
     }
-    if(!taskRequest.taskTitle) {
+    if (!taskRequest.taskTitle) {
       return notFoundError(action, "task title not found", res);
     }
     task.currentListId = taskRequest.currentListId;
@@ -204,7 +217,7 @@ export const inboxTasks = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Get Inbox";
   if (!userId) {
     return badRequestError(action, "Missing parameters", res);
@@ -229,7 +242,7 @@ export const archivedTasks = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Get Archived tasks";
   if (!userId) {
     return badRequestError(action, "Missing parameters", res);
@@ -254,7 +267,7 @@ export const deletedTasks = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Get Deleted tasks";
   if (!userId) {
     return badRequestError(action, "Missing parameters", res);
@@ -279,7 +292,7 @@ export const completedTasks = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Get Completed tasks";
   if (!userId) {
     return badRequestError(action, "Missing parameters", res);
@@ -304,7 +317,7 @@ export const todayTasks = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Get Completed tasks";
   if (!userId) {
     return badRequestError(action, "Missing parameters", res);
@@ -329,7 +342,7 @@ export const upcommingTasks = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Get Completed tasks";
   if (!userId) {
     return badRequestError(action, "Missing parameters", res);
@@ -354,7 +367,8 @@ export const softDeleteTask = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { taskId, userId } = req.body;
+  const { taskId } = req.body;
+  const userId = req.user?.userId;
   const action = "Delete Task";
 
   if (!taskId || !userId) {
@@ -382,7 +396,8 @@ export const softDeleteTask = async (
 };
 
 export const undoTask = async (req: express.Request, res: express.Response) => {
-  const { taskId, userId } = req.body;
+  const { taskId } = req.body;
+  const userId = req.user?.userId;
   const action = "Undo Task Action";
   const undo: string = req.params.undoAction;
   //TODO: Refactor the below logic
@@ -446,7 +461,8 @@ export const markAsArchive = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { taskId, userId } = req.body;
+  const { taskId } = req.body;
+  const userId = req.user?.userId;
   const action = "Archive Task";
 
   if (!taskId || !userId) {
@@ -477,7 +493,8 @@ export const markAsComplete = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { taskId, userId } = req.body;
+  const { taskId } = req.body;
+  const userId = req.user?.userId;
   const action = "Complete Task";
 
   if (!taskId || !userId) {
@@ -519,7 +536,7 @@ export const customListTasks = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const listId = req.params.listId;
   const action = "Get Custom list tasks";
   if (!userId) {
@@ -552,11 +569,15 @@ export const searchTasks = async (
 ) => {
   const searchQuery =
     typeof req.query.search === "string" ? req.query.search : "";
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Search tasks";
 
   if (!userId) {
-    return badRequestError(action, "Please pass user Id", res);
+    return badRequestError(
+      action,
+      "Something went wrong! user Id missing",
+      res
+    );
   }
   try {
     const user = await getUserById(userId);
