@@ -6,6 +6,10 @@ import {
 } from "../models/schemas/users";
 import { authentication, random } from "../helpers";
 import {
+  generateAccessToken,
+  generateRefreshAccessToken,
+} from "../helpers/jwt-token";
+import {
   interalServerError,
   badRequestError,
   notFoundError,
@@ -15,14 +19,30 @@ import { APIStatusCode } from "../models/constants/status.constants";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { MailOptions } from "nodemailer/lib/json-transport";
-import { ILoginResponse, INewUser, IRegisterRequest, IRegisterResponse } from "../models/authentication.model";
+import {
+  ILoginResponse,
+  INewUser,
+  IRegisterRequest,
+  IRegisterResponse,
+} from "../models/authentication.model";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const authCookieName = process.env.AUTH_COOKIE_NAME;
+const authRefreshCookieName = process.env.AUTH_REFRESH_COOKIE_NAME;
 
 export const register = async (req: express.Request, res: express.Response) => {
   // TODO: Create model for user and assign it
   const userRequest: IRegisterRequest = req.body;
   const action = "Sign Up";
 
-  if (!userRequest.email || !userRequest.password || !userRequest.username || !userRequest.userRole) {
+  if (
+    !userRequest.email ||
+    !userRequest.password ||
+    !userRequest.username ||
+    !userRequest.userRole
+  ) {
     return badRequestError(action, "Sign Up failed, missing Info", res);
   }
 
@@ -35,7 +55,7 @@ export const register = async (req: express.Request, res: express.Response) => {
     }
 
     const salt = random();
-    const newUser : INewUser = {
+    const newUser: INewUser = {
       email: userRequest.email,
       username: userRequest.username,
       authentication: {
@@ -49,7 +69,7 @@ export const register = async (req: express.Request, res: express.Response) => {
       age: userRequest.age,
       displaypicture: userRequest.displaypicture,
       userRole: userRequest.userRole,
-    }
+    };
     const user = await createUser(newUser);
     let responseBody: IRegisterResponse = {
       username: user.username,
@@ -112,13 +132,34 @@ export const login = async (req: express.Request, res: express.Response) => {
       authentication(salt, user._id.toString())
     );
     await user.save();
+
+    const token = generateAccessToken(user._id.toString());
+    const refreshToken = generateRefreshAccessToken(user._id.toString());
+
+    if (!token || !refreshToken) {
+      return interalServerError(action, "", res);
+    }
+
     let responseBody: ILoginResponse = {
-      id: user.id,
       email: user.email,
       username: user.username,
       sessionToken: user.authentication.sessionToken.at(-1),
       userRole: user.userRole,
     };
+
+    res.cookie(authCookieName!, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 30 * 60 * 1000, // 30 minute for access token
+    });
+
+    res.cookie(authRefreshCookieName!, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 2 * 24 * 60 * 60 * 1000, // 2 days for refresh token
+    });
 
     return res
       .status(APIStatusCode.OK)
@@ -140,7 +181,6 @@ export const logout = async (req: express.Request, res: express.Response) => {
     if (!user) {
       return notFoundError(action, "User not found", res);
     }
-
     if (!user?.authentication?.sessionToken.includes(sessionToken)) {
       return res
         .status(APIStatusCode.Forbidden)
@@ -157,6 +197,18 @@ export const logout = async (req: express.Request, res: express.Response) => {
       (token) => token !== sessionToken
     );
     user.save();
+
+    res.clearCookie(authCookieName!, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+    res.clearCookie(authRefreshCookieName!, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
     return res
       .status(APIStatusCode.OK)
       .json(APIResponse.success([], action, APIStatusCode.OK))
@@ -180,8 +232,8 @@ export const forgotPassword = async (
       return notFoundError(action, "User not found", res);
     }
 
-    const secret = process.env.JWT_SECRET;
-    const token = jwt.sign({ id: user._id }, secret!, {
+    const secret = process.env.JWT_RESET_PASS_SECRET!;
+    const token = jwt.sign({ id: user._id }, secret, {
       expiresIn: "15m",
     });
 
@@ -197,7 +249,7 @@ export const forgotPassword = async (
       from: process.env.EMAIL,
       to: user.email,
       subject: "Password Reset",
-      text: `You requested for a password reset. Please click this link to reset your password: ${url}/reset-password/${token}`,
+      text: `You requested for a password reset. Please click this link to reset your password: ${url}/reset-password/${token}/${email}`,
     };
 
     transporter.sendMail(mailOptions, (error, info) => {
@@ -232,13 +284,11 @@ export const resetPassword = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const {token, newPassword} = req.body;
+  const { email, token, newPassword } = req.body;
   const action = "Reset Password";
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    const userId = (decoded as any).id;
-    const user = await getUserById(userId).select(
+    const user = await getUserByEmail(email).select(
       "+authentication.salt +authentication.password +authentication.sessionToken"
     );
 
@@ -266,29 +316,73 @@ export const resetPassword = async (
         )
       );
   } catch (error: Error | any | unknown) {
-    if (error.name === "TokenExpiredError") {
-      return res
-        .status(APIStatusCode.BadRequest)
-        .json(
-          APIResponse.error(
-            action,
-            "Password reset link has expired. Please request a new one.",
-            APIStatusCode.BadRequest,
-            error.name
-          )
-        );
-    } else if (error.name === "JsonWebTokenError") {
-      return res
-        .status(APIStatusCode.BadRequest)
-        .json(
-          APIResponse.error(
-            action,
-            "Invalid password reset link.",
-            APIStatusCode.BadRequest,
-            error.name
-          )
-        );
+    return interalServerError(action, error, res);
+  }
+};
+
+export const refreshAllTokens = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const action = "Refresh Token";
+  const userId = req.user?.userId;
+  try {
+
+    if (!userId) {
+      return notFoundError(action, "User id not present", res);
     }
+    const user = await getUserById(userId);
+    if (!user) {
+      return notFoundError(action, "Not a valid user", res);
+    }
+
+    const newToken = generateAccessToken(userId);
+    const refreshToken = generateRefreshAccessToken(userId);
+
+    res.cookie(authCookieName!, newToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 30 * 60 * 1000, // 30 minute for access token
+    });
+    res.cookie(authRefreshCookieName!, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 2 * 24 * 60 * 60 * 1000, // 2 days for refresh token
+    });
+
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success("", action))
+      .end();
+  } catch (error) {
+    return interalServerError(action, error, res);
+  }
+};
+
+export const hardLogoutUser = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const action = "Hard logout user!";
+  try {
+    res.clearCookie(authCookieName!, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+    res.clearCookie(authRefreshCookieName!, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
+    return res
+      .status(APIStatusCode.OK)
+      .json(APIResponse.success([], action, APIStatusCode.OK))
+      .end();
+  } catch (error) {
     return interalServerError(action, error, res);
   }
 };
