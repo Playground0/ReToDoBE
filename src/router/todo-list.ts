@@ -1,16 +1,29 @@
 import express from "express";
-import { createNewList, softDeleteList, getAllList, updateList, archiveList, hideList, deleteList, undoList, archivedList, deletedList, hiddenList } from "../controllers/todo-list";
+import {
+  createNewList,
+  softDeleteList,
+  getAllList,
+  updateList,
+  archiveList,
+  hideList,
+  deleteList,
+  undoList,
+  archivedList,
+  deletedList,
+  hiddenList,
+} from "../controllers/todo-list";
+import { authenticateToken } from "../middlewares/validate-token";
 
 export default (router: express.Router) => {
-  router.get("/list/:userId", getAllList)
-  router.get("/list/:userId/archivedList",archivedList)
-  router.get("/list/:userId/deletedList",deletedList)
-  router.get("/list/:userId/hiddenList",hiddenList)
-  router.patch("/list", updateList)
-  router.post("/list", createNewList);
-  router.delete("/list", deleteList);
-  router.patch("/list/delete", softDeleteList);
-  router.patch("/list/archive", archiveList);
-  router.patch("/list/hide", hideList);
-  router.patch("/list-undo/:undoAction", undoList);
+  router.get("/list", authenticateToken, getAllList);
+  router.get("/list/archivedList", authenticateToken, archivedList);
+  router.get("/list/deletedList", authenticateToken, deletedList);
+  router.get("/list/hiddenList", authenticateToken, hiddenList);
+  router.patch("/list", authenticateToken, updateList);
+  router.post("/list", authenticateToken, createNewList);
+  router.delete("/list", authenticateToken, deleteList);
+  router.patch("/list/delete", authenticateToken, softDeleteList);
+  router.patch("/list/archive", authenticateToken, archiveList);
+  router.patch("/list/hide", authenticateToken, hideList);
+  router.patch("/list-undo/:undoAction", authenticateToken, undoList);
 };

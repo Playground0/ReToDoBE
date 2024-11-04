@@ -24,8 +24,13 @@ export const createNewList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { listTitle, userId } = req.body;
+  const { listTitle } = req.body;
+  const userId = req.user?.userId;
   const action = "Create new list";
+
+  if (!userId) {
+    return notFoundError(action, "Something went wrong!", res);
+  }
 
   const existingList = await getListByNameIfLive(listTitle, userId);
   if (existingList) {
@@ -65,7 +70,7 @@ export const getAllList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { userId } = req.params;
+  const userId = req.user?.userId;
   const action = "Get All Lists";
   if (!userId) {
     return badRequestError(action, "Please pass the user id", res);
@@ -126,7 +131,8 @@ export const softDeleteList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { listId, userId } = req.body;
+  const { listId } = req.body;
+  const userId = req.user?.userId;
   const action = "Delete List";
   if (!listId || !userId) {
     return badRequestError(action, "Missing Parameters", res);
@@ -181,7 +187,8 @@ export const archiveList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { listId, userId } = req.body;
+  const { listId } = req.body;
+  const userId = req.user?.userId;
   const action = "Archive list";
 
   if (!listId) {
@@ -238,7 +245,8 @@ export const archiveList = async (
 };
 
 export const hideList = async (req: express.Request, res: express.Response) => {
-  const { listId, userId } = req.body;
+  const { listId } = req.body;
+  const userId = req.user?.userId;
   const action = "Hide list";
 
   if (!listId) {
@@ -298,7 +306,8 @@ export const deleteList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const { listId, userId } = req.body;
+  const { listId } = req.body;
+  const userId = req.user?.userId;
   const action = "Perma Delete List";
 
   if (!listId) {
@@ -329,7 +338,8 @@ export const deleteList = async (
 };
 
 export const undoList = async (req: express.Request, res: express.Response) => {
-  const { userId, listId } = req.body;
+  const { listId } = req.body;
+  const userId = req.user?.userId;
   const undo: string = req.params.undoAction;
   const action = "Undo Delete list";
   const undoActions: string[] = [
@@ -428,7 +438,7 @@ export const archivedList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Get Archived Lists";
 
   if (!userId) {
@@ -457,7 +467,7 @@ export const deletedList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Get Archived Lists";
 
   if (!userId) {
@@ -486,7 +496,7 @@ export const hiddenList = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const userId = req.params.userId;
+  const userId = req.user?.userId;
   const action = "Get Archived Lists";
 
   if (!userId) {

@@ -16,7 +16,6 @@ export interface IRegisterResponse{
 }
 
 export interface ILoginResponse{
-    id: string;
     email: string;
     username: string;
     sessionToken: string | undefined;

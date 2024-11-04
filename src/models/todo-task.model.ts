@@ -24,7 +24,6 @@ export interface INewTask {
 export interface ICreateTaskRequest {
   currentListId: string;
   previousListID: string;
-  userId: string;
   taskTitle: string;
   taskStartDate: string;
   taskEndDate: string;
