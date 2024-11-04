@@ -78,7 +78,6 @@ server.listen(port, () => {
 });
 
 const MONGO_URL = process.env.NODE_ENV! === 'production' ? process.env.DB_STRING!.toString() : process.env.DB_STRING_LOCAL!.toString();
-console.log(MONGO_URL)
 mongoose.Promise = Promise;
 mongoose.connect(MONGO_URL);
 mongoose.connection.on("error", (error: Error) => console.log(error));
