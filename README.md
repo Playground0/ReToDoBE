@@ -23,7 +23,7 @@ This is the backend API service for Retodo, built using Express.js and MongoDB. 
 
 ## Getting Started
 - Clone the the repo into local directory
-- Connect with me regarding the env var setup
+- Connect with me regarding the env var setup -- most important and required
 - npm install
 - nodemon or nodemon index.ts
 
