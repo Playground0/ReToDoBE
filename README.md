@@ -27,7 +27,7 @@ This is the backend API service for Retodo, built using Express.js and MongoDB. 
 - npm install
 - nodemon or nodemon index.ts
 
-### Contribution
+## Contribution
 - Fork or clone the repository
 - Create a new branch (feature/my-feature).
 - Make your changes and commit your changes into your own branch.
