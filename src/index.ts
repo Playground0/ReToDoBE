@@ -28,9 +28,9 @@ const app = express();
 const port = process.env.PORT || 8000;
 
 const apiLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 100,
-  message: "Too many requests from this IP, please try again after 5 minutes",
+  windowMs: 1 * 60 * 1000, // Wait for 1 minute to make new call
+  max: 300,
+  message: "Too many requests from this IP, please try again after 1 minute",
   headers: true,
 });
 
